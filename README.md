@@ -1,9 +1,24 @@
 # ShopApp
-This project is a microservice that provides an API for a small grocery store. It is written in Java and uses Spring Boot as the main framework. The project is divided into two steps, each with its own commit in the GitHub repository.
+This project is a microservice that provides an API for a small grocery store. 
+It is written in Java and uses Spring Boot as the main framework. 
+Discounts are programmed using Drools rules library in order to separate code from business logic.
+The project is divided into two steps, each with its own commit and tag in the GitHub repository.
+
+<!-- TOC -->
+* [ShopApp](#shopapp)
+  * [OpenAPI Definition](#openapi-definition)
+    * [Servers](#servers)
+    * [Paths](#paths)
+    * [Components](#components)
+  * [Next Steps](#next-steps)
+  * [Requirements](#requirements)
+  * [How to run project locally](#how-to-run-project-locally)
+  * [Ideas to improve an application](#ideas-to-improve-an-application)
+<!-- TOC -->
 
 ## OpenAPI Definition
 
-This is an OpenAPI definition for a server. The current version of this definition is `v0`.
+This is an OpenAPI definition for a server. The current [version](docs/openapi.json) of this definition is `v0`.
 
 ### Servers
 
@@ -18,6 +33,8 @@ There are several paths defined in this definition:
 - `/orders/v1/getOrders`: This path supports a `GET` operation to retrieve all orders.
 - `/orders/v1/getOrderSummary/{orderId}`: This path supports a `GET` operation to retrieve the summary of an order. It requires an `orderId` parameter in the path.
 - `/orders/v1/getOrderIds`: This path supports a `GET` operation to retrieve all order IDs.
+
+Note: the prices are in cents
 
 ### Components
 
@@ -43,17 +60,24 @@ To run the project locally, you need to have Java 17 and Docker installed.
 
 ## How to run project locally
 
-On Windows PowerShell run `runInDocker.ps1`
+On Windows PowerShell run `runInDocker.ps1` [(PowerShell script)](runInDocker.ps1)
 
-On Linux run `runInDocker.sh`
+On Linux run `runInDocker.sh` [(bash script)](runInDocker.sh)
 
 The API will be available at http://localhost:8080.
 
-List of usefull endpoints:
+List of useful endpoints:
 * http://localhost:8080/actuator/prometheus - micrometer metrics for prometheus
 * http://localhost:8080/actuator/health  - health endpoint
 * http://localhost:8080/swagger-ui.html - swagger web ui for testing api
 
 ## Ideas to improve an application
 
-//TODO
+* More complex exception handling
+* Adding sonarqube
+* Adding remote repository for docker images
+* Removing default configuration from application.properties
+* Remote configs
+* Adding spring cloud for example for Azure CosmosDB, ActiveDirectory authentication or Kubernetes
+* Adding DiscoveryClient/ServiceDiscovery/LoadBalancer
+* Support for SQL and non-SQL DB like Postgres or Cassandra
