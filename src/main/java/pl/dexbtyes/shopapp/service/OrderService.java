@@ -1,6 +1,12 @@
 package pl.dexbtyes.shopapp.service;
 
-import lombok.extern.slf4j.Slf4j;
+import lombok.extern.log4j.Log4j2;
+import org.kie.api.event.rule.DebugAgendaEventListener;
+import org.kie.api.event.rule.DebugRuleRuntimeEventListener;
+import org.kie.api.runtime.KieContainer;
+import org.kie.api.runtime.KieSession;
+import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
 import org.springframework.data.domain.Example;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -15,22 +21,26 @@ import pl.dexbtyes.shopapp.repository.ProductRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.GroupedFlux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@Slf4j
+@Log4j2
 public class OrderService {
     public static final String PRODUCT_NOT_FOUND = "Product not found";
     public static final String PRODUCT_ADDED_TO_ORDER = "Product added to order";
     public static final String ORDER_NOT_FOUND = "Order not found";
     private final ProductRepository productRepository;
     private final OrderItemsRepository orderItemsRepository;
+    private final KieContainer kieContainer;
 
-    public OrderService(ProductRepository productRepository, OrderItemsRepository orderItemsRepository) {
+    public OrderService(ProductRepository productRepository, OrderItemsRepository orderItemsRepository, KieContainer kieContainer) {
         this.productRepository = productRepository;
         this.orderItemsRepository = orderItemsRepository;
+        this.kieContainer = kieContainer;
     }
 
     public Mono<Status> addItemsForOrder(long orderId, long productId, int quantity) {
@@ -68,13 +78,29 @@ public class OrderService {
     public Flux<Order> getOrders() {
         return orderItemsRepository.findAll()
                 .groupBy(OrderItemsEntity::getOrderId)
-                .flatMap(this::processOrderItems);
+                .flatMap(this::processOrderItems)
+                .flatMap(this::mergeOrderWithProducts)
+                .map(tuple -> applyDroolRules(tuple.getT1(), tuple.getT2()));
     }
 
-    private Mono<Order> processOrderItems(GroupedFlux<Long, OrderItemsEntity> gf) {
-        return gf
-                .flatMap(orderItem -> orderItemsEntityToOrders(gf.key(), orderItem))
-                .reduce((order, order2) -> order.addAll(order2.items()));
+    private Mono<Tuple2<Order, List<Product>>> mergeOrderWithProducts(Order order) {
+        return getProducts().map(products -> Tuples.of(order, products));
+    }
+
+    private Mono<List<Product>> getProducts() {
+        return productRepository.findAll()
+                .map(pe -> Product.builder()
+                        .name(pe.name())
+                        .basePrice(pe.price())
+                        .build()
+                )
+                .collectList();
+    }
+
+    private Flux<Order> processOrderItems(GroupedFlux<Long, OrderItemsEntity> gf) {
+        return gf.flatMap(orderItem -> orderItemsEntityToOrders(gf.key(), orderItem))
+                .groupBy(Order::id)
+                .flatMap(group -> group.reduce((o1, o2) -> o1.addAll(o2.items())));
     }
 
     private Mono<Order> orderItemsEntityToOrders(long orderId, OrderItemsEntity orderItem) {
@@ -103,6 +129,18 @@ public class OrderService {
         return orderItemsRepository.findAll(Example.of(OrderItemsEntity.builder().orderId(orderId).build()))
                 .switchIfEmpty(Mono.error(new IllegalArgumentException(ORDER_NOT_FOUND)))
                 .flatMap(orderItem -> orderItemsEntityToOrders(orderId, orderItem))
-                .reduce((order, order2) -> order.addAll(order2.items()));
+                .reduce((order, order2) -> order.addAll(order2.items()))
+                .zipWith(getProducts())
+                .map(tuple -> applyDroolRules(tuple.getT1(), tuple.getT2()));
+    }
+
+    private Order applyDroolRules(Order order, List<Product> products) {
+        KieSession kieSession = kieContainer.newKieSession();
+        kieSession.setGlobal("logger", log);
+        products.forEach(kieSession::insert);
+        kieSession.insert(order);
+        kieSession.fireAllRules();
+        kieSession.dispose();
+        return order;
     }
 }

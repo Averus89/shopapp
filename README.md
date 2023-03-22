@@ -28,6 +28,15 @@ This definition includes several schemas for components such as `Status`, `LineI
 - `Order`: This schema defines an object with properties for an order ID, an array of line items, and an order total.
 - `Product`: This schema defines an object with properties for a base price and a name.
 
+## Next Steps
+
+The second step adds some promotions to the API, which apply discounts to the total cost of an order based on the number of products purchased. The promotions are:
+
+- Buy two apples, get one for 70% off: For every pair of apples in an order, one apple will have a 30% discount applied to its price ($0.5 * 0.7 = $0.35).
+- Buy two oranges, get one free: For every three oranges in an order, one orange will have a 100% discount applied to its price ($0.7 * 0 = $0).
+
+The promotions are applied automatically when calculating the total cost of an order, and they are reflected in the response of the `GET /orders/v1/getOrderSummary/{orderId}`
+
 ## Requirements
 
 To run the project locally, you need to have Java 17 and Docker installed.
