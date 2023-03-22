@@ -1,0 +1,92 @@
+package pl.dexbytes.shopapp.rules
+
+import pl.dexbtyes.shopapp.dto.LineItem;
+import pl.dexbtyes.shopapp.dto.Order;
+import pl.dexbtyes.shopapp.dto.Product;
+import java.util.ArrayList;
+import org.apache.logging.log4j.Logger;
+
+global Logger logger
+
+// The first rule, “Explode Cart”, is in the “init” agenda group and has a salience of 10.
+// This rule matches an Order object and all LineItem objects contained within it.
+// When this rule fires, it logs a message and inserts each LineItem object into the working memory.
+// It then sets the focus to the “evaluate” agenda group.
+rule "Explode Cart"
+    agenda-group "init"
+    auto-focus true
+    salience 10
+    dialect "java"
+    when
+        $order : Order()
+        $item : LineItem() from $order.items()
+    then
+        logger.info("Exploding cart");
+        insert($item);
+        kcontext.getKnowledgeRuntime().getAgenda().getAgendaGroup("evaluate").setFocus();
+end
+
+// The second rule is called “Free Orange” and is in the “evaluate” agenda group. It uses the MVEL dialect.
+// This rule matches an Order object and a Product object with the name “orange”.
+// It also collects all LineItem objects that contain an orange product into an ArrayList.
+// If the size of this list is even, then this rule fires.
+// When it fires, it logs a message and creates a new LineItem object for an orange product with a quantity of 100.
+// This new LineItem object is inserted into both the working memory and the original Order object.
+// This means that for every even number of orange products in the cart (i.e., every even number of LineItem objects containing an orange product),
+// a new LineItem for an orange product with a quantity of 100 will be added to the cart.
+rule "Free Orange"
+    agenda-group "evaluate"
+    dialect "mvel"
+    when
+        $order : Order()
+        $orange : Product( name == "orange" )
+        ArrayList($size: size) from collect(LineItem(product == $orange, discount == 0))
+        eval($size % 2 == 0)
+        eval($size > 0)
+    then
+        logger.info( "Adding free orange to cart" );
+        lineItem = new LineItem($orange, 100);
+        insert( lineItem );
+        $order.addItem( lineItem );
+end
+
+// The third rule, “Do checkout”, uses the Java dialect but does not have any conditions.
+// This means that it will always fire when its agenda group has focus.
+// When this rule fires, it logs a message and sets the focus to the “checkout” agenda group.
+rule "Do checkout"
+    dialect "java"
+    when
+    then
+        logger.info("Checkout");
+        kcontext.getKnowledgeRuntime().getAgenda().getAgendaGroup("checkout").setFocus();
+end
+
+// The fourth rule is called “Discount every second apple” and is in the “checkout” agenda group. It uses the MVEL dialect.
+// This rule matches an Order object and a Product object with the name “apple”.
+// It also collects all LineItem objects that contain an apple product into an ArrayList.
+// If the size of this list is greater than 1, then this rule fires.
+// When it fires, it logs a message and iterates over all LineItem objects in the Order.
+// For each LineItem that contains an apple product, it increments a counter.
+// If this counter is even, then it sets the discount of the current LineItem to 70%.
+// This means that for every second apple product in the cart (i.e., every second LineItem containing an apple product),
+// a discount of 70% will be applied.
+rule "Discount every second apple"
+    agenda-group "checkout"
+    dialect "mvel"
+    when
+        $order : Order()
+        $apple : Product( name == "apple" )
+        ArrayList($size: size) from collect(LineItem(product == $apple))
+        eval($size > 1)
+    then
+        logger.info("Discounting every second apple");
+        int count = 0;
+        for (LineItem item : $order.items()) {
+            if (item.getProduct().name().equals("apple")) {
+                count++;
+                if (count % 2 == 0) {
+                    item.setDiscount(30);
+                }
+            }
+        }
+end
