@@ -28,6 +28,8 @@ dependencies {
 	implementation 'org.drools:drools-core:8.35.0.Final'
 	// https://mvnrepository.com/artifact/org.drools/drools-compiler
 	implementation 'org.drools:drools-compiler:8.35.0.Final'
+	// https://mvnrepository.com/artifact/org.drools/drools-mvel
+	implementation group: 'org.drools', name: 'drools-mvel', version: '8.35.0.Final'
 	// https://mvnrepository.com/artifact/io.springfox/springfox-spring-web
 	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.0.4'
 
