@@ -1,7 +1,6 @@
 package pl.dexbtyes.shopapp.dto;
 
 import org.junit.jupiter.api.Test;
-import org.mockito.internal.matchers.Or;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -9,7 +8,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
 
 class OrderTest {
     @Test
