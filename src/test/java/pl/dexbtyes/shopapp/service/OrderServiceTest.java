@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.kie.api.runtime.KieContainer;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +18,8 @@ import pl.dexbtyes.shopapp.dto.Product;
 import pl.dexbtyes.shopapp.dto.Status;
 import pl.dexbtyes.shopapp.entity.OrderItemsEntity;
 import pl.dexbtyes.shopapp.entity.ProductEntity;
+import pl.dexbtyes.shopapp.exception.ProductNotFoundException;
+import pl.dexbtyes.shopapp.exception.QuantityTooLowException;
 import pl.dexbtyes.shopapp.repository.OrderItemsRepository;
 import pl.dexbtyes.shopapp.repository.ProductRepository;
 import reactor.core.publisher.Flux;
@@ -26,7 +27,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.util.Arrays;
-import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -57,12 +57,23 @@ class OrderServiceTest {
 
     @Test
     void shouldNotAddNewItemIfProductDoesNotExists() {
-        when(productRepository.findById(apple.id()))
-                .thenReturn(Mono.empty());
-
         orderService.addItemsForOrder(1, apple.id(), 1)
                 .as(StepVerifier::create)
-                .expectError(IllegalArgumentException.class);
+                .expectError(ProductNotFoundException.class);
+    }
+
+    @Test
+    void shouldNotAddNegativeQuantity() {
+        orderService.addItemsForOrder(1, apple.id(), -1)
+                .as(StepVerifier::create)
+                .expectError(QuantityTooLowException.class);
+    }
+
+    @Test
+    void shouldNotAddZeroQuantity() {
+        orderService.addItemsForOrder(1, apple.id(), 0)
+                .as(StepVerifier::create)
+                .expectError(QuantityTooLowException.class);
     }
 
     @Test
