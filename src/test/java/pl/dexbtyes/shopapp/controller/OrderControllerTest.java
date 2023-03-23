@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import pl.dexbtyes.shopapp.dto.Order;
 import pl.dexbtyes.shopapp.dto.Status;
+import pl.dexbtyes.shopapp.exception.QuantityTooLowException;
 import pl.dexbtyes.shopapp.service.OrderService;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -57,6 +58,24 @@ class OrderControllerTest {
                     assertThat(status.status()).isEqualTo(OrderService.PRODUCT_ADDED_TO_ORDER);
                 })
                 .verifyComplete();
+    }
+
+    @Test
+    void shouldNotAddProductToOrderWithNegativeOrZeroQuantity() {
+        QuantityTooLowException exception = new QuantityTooLowException();
+
+        when(orderService.addItemsForOrder(1L, 1L, -1))
+                .thenReturn(Mono.error(exception));
+        when(orderService.addItemsForOrder(1L, 1L, 0))
+                .thenReturn(Mono.error(exception));
+
+        orderController.addProductToOrder(1L, 1L, -1)
+                .as(StepVerifier::create)
+                .expectError(QuantityTooLowException.class);
+
+        orderController.addProductToOrder(1L, 1L, 0)
+                .as(StepVerifier::create)
+                .expectError(QuantityTooLowException.class);
     }
 
     @Test
