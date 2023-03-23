@@ -30,7 +30,7 @@ jobs:
       - name: Build with Gradle
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: test bootJar --scan
+          arguments: test bootJar
       - uses: actions/upload-artifact@v3
         with:
           name: Package

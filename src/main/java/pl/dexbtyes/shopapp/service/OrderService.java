@@ -1,12 +1,8 @@
 package pl.dexbtyes.shopapp.service;
 
 import lombok.extern.log4j.Log4j2;
-import org.kie.api.event.rule.DebugAgendaEventListener;
-import org.kie.api.event.rule.DebugRuleRuntimeEventListener;
 import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.KieSession;
-import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
 import org.springframework.data.domain.Example;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -16,6 +12,8 @@ import pl.dexbtyes.shopapp.dto.Product;
 import pl.dexbtyes.shopapp.dto.Status;
 import pl.dexbtyes.shopapp.entity.OrderItemsEntity;
 import pl.dexbtyes.shopapp.entity.ProductEntity;
+import pl.dexbtyes.shopapp.exception.ProductNotFoundException;
+import pl.dexbtyes.shopapp.exception.QuantityTooLowException;
 import pl.dexbtyes.shopapp.repository.OrderItemsRepository;
 import pl.dexbtyes.shopapp.repository.ProductRepository;
 import reactor.core.publisher.Flux;
@@ -44,11 +42,16 @@ public class OrderService {
     }
 
     public Mono<Status> addItemsForOrder(long orderId, long productId, int quantity) {
-        return productRepository.findById(productId)
-                .switchIfEmpty(Mono.error(new IllegalArgumentException(PRODUCT_NOT_FOUND)))
+        return Mono.just(OrderItemsEntity.builder().orderId(orderId).productId(productId).quantity(quantity).build())
+                .flatMap(this::validateQuantity)
+                .flatMap(entity -> productRepository.findById(entity.getProductId()))
+                .switchIfEmpty(Mono.error(new ProductNotFoundException()))
                 .flatMapMany(item -> saveItems(orderId, item, quantity))
-                .then(Mono.just(new Status(HttpStatus.CREATED.value(), PRODUCT_ADDED_TO_ORDER)))
-                .onErrorResume(throwable -> Mono.just(new Status(HttpStatus.NOT_FOUND.value(), throwable.getMessage())));
+                .then(Mono.just(new Status(HttpStatus.CREATED.value(), PRODUCT_ADDED_TO_ORDER)));
+    }
+
+    private Mono<OrderItemsEntity> validateQuantity(OrderItemsEntity entity) {
+        return entity.getQuantity() > 0 ? Mono.just(entity) : Mono.error(new QuantityTooLowException());
     }
 
     private Flux<OrderItemsEntity> saveItems(long orderId, ProductEntity item, int quantity) {
